@@ -1,0 +1,26 @@
+{
+    "author": "Brett Langdon <brett@blangdon.com> (http://brett.is/)",
+    "bugs": {
+        "url": "https://github.com/brettlangdon/node-wgdb/issues"
+    },
+    "description": "Bindings for WhiteDB (wgdb)",
+    "homepage": "https://github.com/brettlangdon/node-wgdb",
+    "keywords": [
+        "white",
+        "db",
+        "database",
+        "wgdb",
+        "whitedb"
+    ],
+    "license": "MIT",
+    "main": "lib/index.js",
+    "name": "wgdb",
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/brettlangdon/node-wgdb.git"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "version": "0.1.0"
+}
