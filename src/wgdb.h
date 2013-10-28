@@ -23,6 +23,8 @@ class WgDB : ObjectWrap{
   static Handle<Value> Delete(const Arguments& args);
   static Handle<Value> CreateRecord(const Arguments& args);
   static Handle<Value> FirstRecord(const Arguments& args);
+  static Handle<Value> Dump(const Arguments& args);
+  static Handle<Value> Import(const Arguments& args);
 };
 
 class Record : ObjectWrap{
