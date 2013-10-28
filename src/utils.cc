@@ -29,3 +29,16 @@ Local<Value> encoded_to_v8(void* db_ptr, wg_int enc){
     return Local<Value>::New(Undefined());
   }
 }
+
+
+wg_int v8_to_encoded(void* db_ptr, Local<Value> data){
+  if(data->IsInt32()){
+    return wg_encode_int(db_ptr, (int)data->Int32Value());
+  } else if(data->IsNumber()){
+    return wg_encode_double(db_ptr, data->NumberValue());
+  } else if(data->IsString()){
+    return wg_encode_str(db_ptr, get_str(data->ToString()), NULL);
+  } else{
+    return wg_encode_null(db_ptr, 0);
+  }
+}
