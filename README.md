@@ -3,13 +3,28 @@ node-wgdb
 
 Bindings for [WhiteDB](http://whitedb.org/) for [Node.JS](http://nodejs.org/).
 
-This is currently a work in progress and is not yet published to [npm](http://npmjs.org/).
+This library is still a work in progress and might not work for everyone.
+Please report any and all issues.
+
+## Installing
+You need to first install the [WhiteDB](http://whitedb.org/) library from their [download page](http://whitedb.org/download.html). The version developed against is `0.7.0`.
+
+### Via Git
+```bash
+git clone git://github.com/brettlangdon/node-wgdb.git
+cd ./node-wgdb
+npm install
+```
+
+### Via NPM
+```bash
+npm install wgdb
+```
 
 ## TODO
-* Need to add in locking
-* Need to finish flushing out the API
-* The C++ code really needs a decent refactor
-* Test might be a good idea
+* need to actually write documentation for it
+* API for setting fields could be a little better
+* the code could use some refactoring
 
 ## License
 ```
