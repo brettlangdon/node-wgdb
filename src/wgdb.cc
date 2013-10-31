@@ -111,12 +111,26 @@ void do_create_record(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
 
   RecordData* data = static_cast<RecordData*>(baton->data);
+  wg_int lock = wg_start_write(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
   data->record = wg_create_record(baton->wgdb->db_ptr, data->length);
+
+  if(!wg_end_write(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   if(data->record == NULL){
     char buffer[1024];
     sprintf(buffer, "wgdb database %s could not create record of length %d", baton->wgdb->db_name, data->length);
     baton->error = buffer;
-    delete data;
     return;
   }
 
@@ -127,12 +141,25 @@ void do_first_record(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
 
   RecordData* data = static_cast<RecordData*>(baton->data);
+  wg_int lock = wg_start_read(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
   data->record = wg_get_first_record(baton->wgdb->db_ptr);
+
+  if(!wg_end_read(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
   if(data->record == NULL){
     char buffer[1024];
     sprintf(buffer, "wgdb database %s could not create record of length %d", baton->wgdb->db_name, data->length);
     baton->error = buffer;
-    delete data;
     return;
   }
 
@@ -143,9 +170,23 @@ void do_dump(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
   char* filename = static_cast<char*>(baton->data);
 
+  wg_int lock = wg_start_read(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   if(wg_dump(baton->wgdb->db_ptr, filename) != 0){
     char buffer[1024];
     sprintf(buffer, "error dumping database %s to %s", baton->wgdb->db_name, filename);
+    baton->error = buffer;
+  }
+
+  if(!wg_end_read(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release read lock", baton->wgdb->db_name);
     baton->error = buffer;
   }
 }
@@ -154,9 +195,23 @@ void do_import(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
   char* filename = static_cast<char*>(baton->data);
 
+  wg_int lock = wg_start_write(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   if(wg_import_dump(baton->wgdb->db_ptr, filename) != 0){
     char buffer[1024];
     sprintf(buffer, "error importing %s to database %s", filename, baton->wgdb->db_name);
+    baton->error = buffer;
+  }
+
+  if(!wg_end_write(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release write lock", baton->wgdb->db_name);
     baton->error = buffer;
   }
 }
@@ -166,21 +221,50 @@ void do_record_next(uv_work_t* req){
 
   Record* record = static_cast<Record*>(baton->data);
 
+  wg_int lock = wg_start_read(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   RecordData* new_data = new RecordData();
   new_data->record = wg_get_next_record(record->wgdb->db_ptr, record->rec_ptr);
-
   baton->data = new_data;
+
+  if(!wg_end_read(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not releae read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+  }
 }
 
 void do_record_set(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
 
   FieldData* set_field = static_cast<FieldData*>(baton->data);
+
+  wg_int lock = wg_start_write(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   wg_int result = wg_set_field(set_field->record->wgdb->db_ptr, set_field->record->rec_ptr, set_field->field, set_field->enc);
   if(result < 0){
     char buffer[1024];
     sprintf(buffer, "error setting field %d on record for database %s", set_field->field, set_field->record->wgdb->db_name);
     baton->error = buffer;
+  }
+
+  if(!wg_end_write(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
   }
 }
 
@@ -188,13 +272,29 @@ void do_record_get(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
 
   FieldData* get_field = static_cast<FieldData*>(baton->data);
+
+  wg_int lock = wg_start_read(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   wg_int result = wg_get_field(get_field->record->wgdb->db_ptr, get_field->record->rec_ptr, get_field->field);
+
+  if(!wg_end_read(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   if(result < 0){
     char buffer[1024];
     sprintf(buffer, "error getting field %d on record for database %s", get_field->field, get_field->record->wgdb->db_name);
     baton->error = buffer;
   }
-
   get_field->enc = result;
 }
 
@@ -203,7 +303,23 @@ void do_record_fields(uv_work_t* req){
 
   Record* record = static_cast<Record*>(baton->data);
 
+  wg_int lock = wg_start_read(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   wg_int length = wg_get_record_len(record->wgdb->db_ptr, record->rec_ptr);
+
+  if(!wg_end_read(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
   if(length < 0){
     char buffer[1024];
     sprintf(buffer, "could not get record length from database %s", record->wgdb->db_name);
