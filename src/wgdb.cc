@@ -416,6 +416,13 @@ void WgDB::Init(Handle<Object> target){
   tpl->PrototypeTemplate()->Set(String::NewSymbol("import"),
                                 FunctionTemplate::New(WgDB::Import)->GetFunction());
 
+  tpl->Set(String::NewSymbol("EQUAL"), Int32::New(int(WG_COND_EQUAL)));
+  tpl->Set(String::NewSymbol("NOT_EQUAL"), Int32::New(int(WG_COND_NOT_EQUAL)));
+  tpl->Set(String::NewSymbol("LESSTHAN"), Int32::New(int(WG_COND_LESSTHAN)));
+  tpl->Set(String::NewSymbol("GREATER"), Int32::New(int(WG_COND_GREATER)));
+  tpl->Set(String::NewSymbol("LTEQUAL"), Int32::New(int(WG_COND_LTEQUAL)));
+  tpl->Set(String::NewSymbol("GTEQUAL"), Int32::New(int(WG_COND_GTEQUAL)));
+
   Persistent<Function> constructor = Persistent<Function>::New(tpl->GetFunction());
   target->Set(String::NewSymbol("wgdb"), constructor);
 }
