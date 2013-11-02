@@ -51,7 +51,8 @@ Either attaches to or creates the shared space for the `wgdb` instance.
 
 Calling `attach` is very important, this makes it so you can use the other methods.
 
-* `callback` - `function(error)` to call when done attaching, `error` will be `undefined` if no error occurred.
+* `callback` - `function(error)` to call when done attaching
+  * `error` will be `undefined` if no error occurred.
 
 ```javascript
 var wgdb = require("wgdb");
@@ -69,7 +70,8 @@ db.attach(function(error){
 #### `wgdb.detach([callback])`
 Detaches an attached `wgdb` instance.
 
-* `callback` - `function(error)` to call when done detaching, `error` will be `undefined` if no error occurred.
+* `callback` - `function(error)` to call when done detaching
+  * `error` will be `undefined` if no error occurred.
 
 ```javascript
 var wgdb = require("wgdb");
@@ -86,7 +88,8 @@ db.attach(function(error){
 #### `wgdb.delete([callback])`
 Delete the shared memory space for the `wgdb` instance.
 
-* `callback` - `function(error)` to call when done deleting, `error` will be `undefined` if no error occurred.
+* `callback` - `function(error)` to call when done deleting
+  * `error` will be `undefined` if no error occurred.
 
 ```javascript
 var wgdb = require("wgdb");
@@ -103,7 +106,8 @@ db.attach(function(error){
 Dump the `wgdb` database to `filename`.
 
 * `filename` - string filename of where to dump the database (required)
-* `callback` - `function(error)` to call when done dumping, `error` will be `undefined` if no error occurred.
+* `callback` - `function(error)` to call when done dumping
+  * `error` will be `undefined` if no error occurred.
 
 ```javascript
 var wgdb = require("wgdb");
@@ -120,7 +124,8 @@ db.attach(function(error){
 Import `filename` into the `wgdb` database.
 
 * `filename` - string filename of where to load the database from (required)
-* `callback` - `function(error)` to call when done importing, `error` will be `undefined` if no error occurred.
+* `callback` - `function(error)` to call when done importing
+  * `error` will be `undefined` if no error occurred.
 
 ```javascript
 var wgdb = require("wgdb");
@@ -137,7 +142,9 @@ db.attach(function(error){
 Add a new record to the `wgdb` instance.
 
 * `num_fields` - int number of fields for the record to have (required)
-* `callback` - `function(error, record)` to call when done creating, `error` will be `undefined` if no error occurred, `record` will be `undefined` if an error occurred or else will be a `record` instance.
+* `callback` - `function(error, record)` to call when done creating
+  * `error` will be `undefined` if no error occurred
+  * `record` will be `undefined` if an error occurred or else will be a `record` instance.
 
 ```javascript
 var wgdb = require("wgdb");
@@ -160,7 +167,9 @@ db.attach(function(error){
 #### `wgdb.firstRecord([callback])`
 Get the first record from the `wgdb` instance.
 
-* `callback` - `function(error, record)` to call when done creating, `error` will be `undefined` if no error occurred, `record` will be `undefined` if an error occurred or else will be a `record` instance.
+* `callback` - `function(error, record)` to call when done creating
+  * `error` will be `undefined` if no error occurred
+  * `record` will be `undefined` if an error occurred or else will be a `record` instance.
 
 ```javascript
 var wgdb = require("wgdb");
@@ -189,7 +198,9 @@ If `last_record` is given, then find the first record after `last_record` which 
 * `condition` - one of the `wgdb` condition constants,  e.g. `wgdb.EQUAL` (required)
 * `value` - the value to match `condition` on (required)
 * `last_record` - a `record` instance, find the next record after `last_record` which matches `condition` and `value` (optional)
-* `callback` - `function(error, record)` to call when done searching, `error` will be `undefined` if no error occurred, `record` will be `undefined` if an error occurred or else will be a `record` instance.
+* `callback` - `function(error, record)` to call when done searching
+  * `error` will be `undefined` if no error occurred
+  * `record` will be `undefined` if an error occurred or else will be a `record` instance.
 
 ```javascript
 var wgdb = require("wgdb");
@@ -226,7 +237,9 @@ Query the `wgdb` instance for all records which meet the provided `query`.
 ```
 
 * `query` - array representing the query to make (required)
-* `callback` - `function(error, cursor)` to call when done searching, `error` will be `undefined` if no error occurred, `cursor` will be `undefined` if an error occurred or else will be a `cursor` instance.
+* `callback` - `function(error, cursor)` to call when done searching
+  * `error` will be `undefined` if no error occurred
+  * `cursor` will be `undefined` if an error occurred or else will be a `cursor` instance.
 
 ```javascript
 var wgdb = require("wgdb");
