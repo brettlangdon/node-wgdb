@@ -326,6 +326,32 @@ void do_record_next(uv_work_t* req){
   }
 }
 
+void do_record_delete(uv_work_t* req){
+  Baton* baton = static_cast<Baton*>(req->data);
+
+  Record* record = static_cast<Record*>(baton->data);
+
+  wg_int lock = wg_start_write(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
+  if(wg_delete_record(record->wgdb->db_ptr, record->rec_ptr) != 0){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not delete record", baton->wgdb->db_name);
+    baton->error = buffer;
+  }
+
+  if(!wg_end_write(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not releae write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+  }
+}
+
 void do_record_set(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
 
@@ -851,6 +877,8 @@ void Record::Init(){
                                 FunctionTemplate::New(Record::SetField)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("getField"),
                                 FunctionTemplate::New(Record::GetField)->GetFunction());
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("delete"),
+                                FunctionTemplate::New(Record::Delete)->GetFunction());
   constructor = Persistent<Function>::New(tpl->GetFunction());
 }
 
@@ -913,6 +941,28 @@ Handle<Value> Record::Fields(const Arguments& args){
   uv_work_t *req = new uv_work_t;
   req->data = baton;
   uv_queue_work(uv_default_loop(), req, do_record_fields, do_after_fields);
+
+  return scope.Close(Undefined());
+}
+
+Handle<Value> Record::Delete(const Arguments& args){
+  HandleScope scope;
+  int argc = args.Length();
+
+  Baton* baton = new Baton();
+  if(argc > 0 && args[argc - 1]->IsFunction()){
+    baton->has_cb = true;
+    baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[argc - 1]));
+  }
+
+  Record* record = ObjectWrap::Unwrap<Record>(args.This());
+  baton->wgdb = record->wgdb;
+  baton->data = record;
+  record->Ref();
+
+  uv_work_t *req = new uv_work_t;
+  req->data = baton;
+  uv_queue_work(uv_default_loop(), req, do_record_delete, do_after_no_result);
 
   return scope.Close(Undefined());
 }
