@@ -738,7 +738,7 @@ Handle<Value> WgDB::FindRecord(const Arguments& args){
   }
 
   void* rec = NULL;
-  if(argc > 3 && args[3]->IsObject()){
+  if(argc > 3 && args[3]->IsObject() && !args[3]->IsFunction()){
     Record* record = ObjectWrap::Unwrap<Record>(args[3]->ToObject());
     rec = record->rec_ptr;
   }
