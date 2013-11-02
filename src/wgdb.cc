@@ -31,6 +31,14 @@ struct RecordData {
   void* record;
 };
 
+struct FindData {
+  int field;
+  wg_int enc;
+  wg_int cond;
+  void* rec;
+  void* data;
+};
+
 
 /*
  *
@@ -214,6 +222,30 @@ void do_import(uv_work_t* req){
     sprintf(buffer, "wgdb database %s could not release write lock", baton->wgdb->db_name);
     baton->error = buffer;
   }
+}
+
+void do_find_record(uv_work_t* req){
+  Baton* baton = static_cast<Baton*>(req->data);
+  FindData* data = static_cast<FindData*>(baton->data);
+
+  wg_int lock = wg_start_read(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
+  RecordData* new_data = new RecordData();
+  new_data->record = wg_find_record(baton->wgdb->db_ptr, data->field, data->cond, data->enc, data->rec);
+  baton->data = new_data;
+
+  if(!wg_end_read(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+  }
+
 }
 
 void do_record_next(uv_work_t* req){
@@ -415,6 +447,8 @@ void WgDB::Init(Handle<Object> target){
                                 FunctionTemplate::New(WgDB::Dump)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("import"),
                                 FunctionTemplate::New(WgDB::Import)->GetFunction());
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("findRecord"),
+                                FunctionTemplate::New(WgDB::FindRecord)->GetFunction());
 
   tpl->Set(String::NewSymbol("EQUAL"), Int32::New(int(WG_COND_EQUAL)));
   tpl->Set(String::NewSymbol("NOT_EQUAL"), Int32::New(int(WG_COND_NOT_EQUAL)));
@@ -627,6 +661,53 @@ Handle<Value> WgDB::Import(const Arguments& args){
   uv_work_t *req = new uv_work_t;
   req->data = baton;
   uv_queue_work(uv_default_loop(), req, do_import, do_after_no_result);
+
+  return scope.Close(Undefined());
+}
+
+Handle<Value> WgDB::FindRecord(const Arguments& args){
+  HandleScope scope;
+  int argc = args.Length();
+
+  if(argc < 3){
+    return ThrowException(Exception::Error(String::New("findRecord requires 3 parameters")));
+  }
+
+  if(!args[0]->IsInt32()){
+    return ThrowException(Exception::TypeError(String::New("findRecord argument 1 must be an integer")));
+  }
+
+  if(!args[1]->IsInt32()){
+    return ThrowException(Exception::TypeError(String::New("findRecord argument 2 must be an integer")));
+  }
+
+  void* rec = NULL;
+  if(argc > 3 && args[3]->IsObject()){
+    Record* record = ObjectWrap::Unwrap<Record>(args[3]->ToObject());
+    rec = record->rec_ptr;
+  }
+
+  Baton* baton = new Baton();
+  if(args[argc - 1]->IsFunction()){
+    baton->has_cb = true;
+    baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[argc - 1]));
+  }
+
+  WgDB* db = ObjectWrap::Unwrap<WgDB>(args.This());
+  baton->wgdb = db;
+
+  FindData* data = new FindData();
+  data->field = (int)args[0]->Int32Value();
+  data->cond = (int)args[1]->Int32Value();
+  data->enc = v8_to_encoded(db->db_ptr, args[2]);
+  data->rec = rec;
+
+  baton->data = data;
+  db->Ref();
+
+  uv_work_t *req = new uv_work_t;
+  req->data = baton;
+  uv_queue_work(uv_default_loop(), req, do_find_record, Record::do_after_create_record);
 
   return scope.Close(Undefined());
 }
