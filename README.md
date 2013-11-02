@@ -266,6 +266,183 @@ db.attach(function(error){
 });
 ```
 
+### `record`
+A `record` instance represents a single record in a `wgdb` database;
+
+The only way to get a `record` is either by querying a `wgdb` instance
+or calling `wgdb.createRecord`
+
+#### `record.setField(field, value, [callback])`
+Set the value of a field in a record.
+
+* `field` - int of the field to set `value` for
+* `value` - the value to set the field to, please see notes on supported values
+* `callback` - `function(error)` to call when done setting
+  * `error` will be `undefined` if no error occurred
+
+```javascript
+var wgdb = require("wgdb");
+
+var db = new wgdb(1000, 2000000);
+db.attach(function(error){
+    if(!error){
+        db.createRecord(2, function(error, record){
+            // error checking here
+
+            record.setField(0, "hello", function(error){
+                record.setField(1, "world", function(error){
+
+                });
+            });
+        });
+    }
+});
+```
+
+#### `record.getField(field, [callback])`
+Get the value of a given field for the `record` instance
+
+* `field` - int of the field to set `value` for
+* `callback` - `function(error, value)` to call when done getting
+  * `error` will be `undefined` if no error occurred
+  * `value` will be the value stored in that field, please see notes on supported values
+
+```javascript
+var wgdb = require("wgdb");
+
+var db = new wgdb(1000, 2000000);
+db.attach(function(error){
+    if(!error){
+        db.findRecord(0, wgdb.EQUAL, "hello", function(error, record){
+            // error checking here
+
+            record.getField(1, function(error, value){
+                console.log(value);
+            });
+        });
+    }
+});
+```
+
+#### `record.length([callback])`
+Get the number of fields in a given `record` instance.
+
+* `callback` - `function(error, value)` to call when done getting
+  * `error` will be `undefined` if no error occurred
+  * `length` will be the length of the `record`, this is the value set when calling `wgdb.createRecord`
+
+```javascript
+var wgdb = require("wgdb");
+
+var db = new wgdb(1000, 2000000);
+db.attach(function(error){
+    if(!error){
+        db.findRecord(0, wgdb.EQUAL, "hello", function(error, record){
+            // error checking here
+
+            record.length(function(error, length){
+                console.log(length);
+            });
+        });
+    }
+});
+```
+
+#### `record.getFields([callback])`
+Get the value of all fields for the `record` instance.
+
+* `callback` - `function(error, fields)` to call when done getting
+  * `error` will be `undefined` if no error occurred
+  * `fields` will be an array of values for the fields in `record`
+
+```javascript
+var wgdb = require("wgdb");
+
+var db = new wgdb(1000, 2000000);
+db.attach(function(error){
+    if(!error){
+        db.findRecord(0, wgdb.EQUAL, "hello", function(error, record){
+            // error checking here
+
+            record.getFields(function(error, fields){
+                console.dir(fields);
+            });
+        });
+    }
+});
+```
+
+#### `record.delete([callback])`
+Delete the record that the `record` instance points to.
+
+* `callback` - `function(error)` to call when done deleting
+  * `error` will be `undefined` if no error occurred
+
+```javascript
+var wgdb = require("wgdb");
+
+var db = new wgdb(1000, 2000000);
+db.attach(function(error){
+    if(!error){
+        db.findRecord(0, wgdb.EQUAL, "hello", function(error, record){
+            // error checking here
+
+            record.delete(function(error){
+                // it is gone, no going back
+            });
+        });
+    }
+});
+```
+
+### `cursor`
+
+A `cursor` is used to iterate over the results of a call to `wgdb.query`.
+
+The only way to get an instance of `cursor` is by calling `wgdb.query`.
+
+#### `cursor.next([callback])`
+Get the next `record` in the query results.
+
+* `callback` - `function(error, record)` to call when done fetching
+  * `error` will be `undefined` if no error occurred
+  * `record` will be `undefined` if an error has occurred or if there are no more records left in the query results, otherwise it will be a `record` instance
+
+```javascript
+var wgdb = require("wgdb");
+
+var db = new wgdb(1000, 2000000);
+db.attach(function(error){
+    if(!error){
+        db.query([
+            [1, wgdb.GTEQUAL, 5],
+        ], function(error, cursor){
+            if(error || !cursor){
+                console.log(error);
+                return;
+            }
+
+            cursor.next(function(error, record){
+                if(error){
+                    // something bad happend
+                    return;
+                }
+                if(!record){
+                    // no more records left in the results
+                    return;
+                }
+
+                // do something with record
+
+                // on to the next one
+                cursor.next(function(error, record){
+                    // do the same checking as above
+                });
+            });
+        });
+    }
+});
+```
 
 ## License
 ```
