@@ -5,50 +5,6 @@ Persistent<Function> Cursor::constructor;
 
 /*
  *
- * Structs
- *
-*/
-struct Baton {
-  bool has_cb;
-  Persistent<Function> callback;
-  WgDB* wgdb;
-  const char* error;
-  void* data;
-};
-
-struct FieldData {
-  int field;
-  wg_int enc;
-  Record* record;
-};
-
-struct Fields {
-  int length;
-  wg_int* encs;
-};
-
-struct RecordData {
-  int length;
-  void* record;
-};
-
-struct FindData {
-  int field;
-  wg_int enc;
-  wg_int cond;
-  void* rec;
-  void* data;
-};
-
-struct CursorData {
-  int arglen;
-  wg_query_arg* arglist;
-  wg_query* query;
-};
-
-
-/*
- *
  * Async Functions
  *
 */
