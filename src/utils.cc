@@ -42,3 +42,15 @@ wg_int v8_to_encoded(void* db_ptr, Local<Value> data){
     return wg_encode_null(db_ptr, 0);
   }
 }
+
+wg_int v8_to_encoded_param(void* db_ptr, Local<Value> data){
+  if(data->IsInt32()){
+    return wg_encode_query_param_int(db_ptr, (int)data->Int32Value());
+  } else if(data->IsNumber()){
+    return wg_encode_query_param_double(db_ptr, data->NumberValue());
+  } else if(data->IsString()){
+    return wg_encode_query_param_str(db_ptr, get_str(data->ToString()), NULL);
+  } else{
+    return wg_encode_query_param_null(db_ptr, 0);
+  }
+}
