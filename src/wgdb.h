@@ -3,6 +3,7 @@
 
 #include <node.h>
 #include <whitedb/dbapi.h>
+#include <whitedb/indexapi.h>
 #include <v8.h>
 
 #include "utils.h"
@@ -27,6 +28,8 @@ class WgDB : ObjectWrap{
   static Handle<Value> Import(const Arguments& args);
   static Handle<Value> Query(const Arguments& args);
   static Handle<Value> FindRecord(const Arguments& args);
+  static Handle<Value> CreateIndex(const Arguments& args);
+  static Handle<Value> DropIndex(const Arguments& args);
 };
 
 class Record : ObjectWrap{

@@ -108,6 +108,74 @@ void do_create_record(uv_work_t* req){
   baton->data = data;
 }
 
+void do_create_index(uv_work_t* req){
+  Baton* baton = static_cast<Baton*>(req->data);
+  IndexData* data = static_cast<IndexData*>(baton->data);
+
+  wg_int lock = wg_start_write(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
+  if(wg_column_to_index_id(baton->wgdb->db_ptr, data->field, WG_INDEX_TYPE_TTREE, data->matchrec, data->reclen) == -1){
+    if(wg_create_index(baton->wgdb->db_ptr, data->field, WG_INDEX_TYPE_TTREE, data->matchrec, data->reclen) != 0){
+      char buffer[1024];
+      sprintf(buffer, "creation of index on field %d failed for wgdb database %s", data->field, baton->wgdb->db_name);
+      baton->error = buffer;
+    }
+  } else{
+    char buffer[1024];
+    sprintf(buffer, "index on field %d already exists for wgdb database %s", data->field, baton->wgdb->db_name);
+    baton->error = buffer;
+  }
+
+  if(!wg_end_write(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+}
+
+void do_drop_index(uv_work_t* req){
+  Baton* baton = static_cast<Baton*>(req->data);
+  IndexData* data = static_cast<IndexData*>(baton->data);
+
+  wg_int lock = wg_start_write(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
+  wg_int index_id = wg_column_to_index_id(baton->wgdb->db_ptr, data->field, 0, data->matchrec, data->reclen);
+
+  if(index_id == -1){
+    char buffer[1024];
+    sprintf(buffer, "index on field %d does not exist for wgdb database %s", data->field, baton->wgdb->db_name);
+    baton->error = buffer;
+
+  } else{
+    if(wg_drop_index(baton->wgdb->db_ptr, index_id) != 0){
+      char buffer[1024];
+      sprintf(buffer, "failed to drop index on field %d for wgdb database %s", data->field, baton->wgdb->db_name);
+      baton->error = buffer;
+
+    }
+  }
+
+  if(!wg_end_write(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not release write lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+}
+
 void do_first_record(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
 
@@ -487,6 +555,10 @@ void WgDB::Init(Handle<Object> target){
                                 FunctionTemplate::New(WgDB::FindRecord)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("query"),
                                 FunctionTemplate::New(WgDB::Query)->GetFunction());
+  // tpl->PrototypeTemplate()->Set(String::NewSymbol("createIndex"),
+  //                               FunctionTemplate::New(WgDB::CreateIndex)->GetFunction());
+  // tpl->PrototypeTemplate()->Set(String::NewSymbol("dropIndex"),
+  //                               FunctionTemplate::New(WgDB::DropIndex)->GetFunction());
 
   tpl->Set(String::NewSymbol("EQUAL"), Int32::New(int(WG_COND_EQUAL)));
   tpl->Set(String::NewSymbol("NOT_EQUAL"), Int32::New(int(WG_COND_NOT_EQUAL)));
@@ -808,6 +880,110 @@ Handle<Value> WgDB::Query(const Arguments& args){
   uv_work_t *req = new uv_work_t;
   req->data = baton;
   uv_queue_work(uv_default_loop(), req, do_query, Cursor::do_after_create_cursor);
+
+  return scope.Close(Undefined());
+}
+
+Handle<Value> WgDB::CreateIndex(const Arguments& args){
+  HandleScope scope;
+  int argc = args.Length();
+
+  if(argc < 1){
+    return ThrowException(Exception::Error(String::New("query requires at least 1 parameter")));
+  }
+
+  if(!args[0]->IsInt32()){
+    return ThrowException(Exception::TypeError(String::New("query argument 1 must be an integer")));
+  }
+
+
+  IndexData* data = new IndexData();
+  WgDB* db = ObjectWrap::Unwrap<WgDB>(args.This());
+  data->field = args[0]->Int32Value();
+
+  if(argc > 1 && args[1]->IsArray()){
+    Local<Array> arg_array = Local<Array>::Cast(args[0]->ToObject());
+    data->reclen = arg_array->Length();
+    wg_int tmp[data->reclen];
+
+    for(int i = 0; i < data->reclen; ++i){
+      Local<Value> next = arg_array->Get(i);
+      if(next->IsUndefined()){
+        tmp[i] = 0;
+      } else{
+        tmp[i] = v8_to_encoded(db->db_ptr, next);
+      }
+    }
+
+    data->matchrec = tmp;
+  } else if(argc > 2 && !args[1]->IsArray()){
+    return ThrowException(Exception::TypeError(String::New("query argument 2 must be an array")));
+  }
+
+  Baton* baton = new Baton();
+  if(args[argc - 1]->IsFunction()){
+    baton->has_cb = true;
+    baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[argc - 1]));
+  }
+  baton->wgdb = db;
+  baton->data = data;
+  db->Ref();
+
+  uv_work_t *req = new uv_work_t;
+  req->data = baton;
+  uv_queue_work(uv_default_loop(), req, do_create_index, do_after_no_result);
+
+  return scope.Close(Undefined());
+}
+
+Handle<Value> WgDB::DropIndex(const Arguments& args){
+  HandleScope scope;
+  int argc = args.Length();
+
+  if(argc < 1){
+    return ThrowException(Exception::Error(String::New("query requires at least 1 parameter")));
+  }
+
+  if(!args[0]->IsInt32()){
+    return ThrowException(Exception::TypeError(String::New("query argument 1 must be an integer")));
+  }
+
+
+  IndexData* data = new IndexData();
+  WgDB* db = ObjectWrap::Unwrap<WgDB>(args.This());
+  data->field = args[0]->Int32Value();
+
+  if(argc > 1 && args[1]->IsArray()){
+    Local<Array> arg_array = Local<Array>::Cast(args[0]->ToObject());
+    data->reclen = arg_array->Length();
+    wg_int tmp[data->reclen];
+
+    for(int i = 0; i < data->reclen; ++i){
+      Local<Value> next = arg_array->Get(i);
+      if(next->IsUndefined()){
+        tmp[i] = 0;
+      } else{
+        tmp[i] = v8_to_encoded(db->db_ptr, next);
+      }
+    }
+
+    data->matchrec = tmp;
+  } else if(argc > 2 && !args[1]->IsArray()){
+    return ThrowException(Exception::TypeError(String::New("query argument 2 must be an array")));
+  }
+
+  Baton* baton = new Baton();
+  if(args[argc - 1]->IsFunction()){
+    baton->has_cb = true;
+    baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[argc - 1]));
+  }
+  baton->wgdb = db;
+  baton->data = data;
+  db->Ref();
+
+  uv_work_t *req = new uv_work_t;
+  req->data = baton;
+  uv_queue_work(uv_default_loop(), req, do_drop_index, do_after_no_result);
 
   return scope.Close(Undefined());
 }
