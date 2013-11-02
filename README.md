@@ -23,6 +23,27 @@ npm install wgdb
 
 ## API
 
+* [wgdb](#wgdb)
+  * [constants](#constants)
+  * [new wgdb(db_name, \[size\])](#new-wgdbdb_name-size)
+  * [wgdb.attach(\[callback\])](#wgdbattachcallback)
+  * [wgdb.detach(\[callback\])](#wgdbdetachcallback)
+  * [wgdb.delete(\[callback\])](#wgdbdeletecallback)
+  * [wgdb.dump(filename, \[callback\])](#wgdbdumpfilename-callback)
+  * [wgdb.import(import, \[callback\])](#wgdbimportfilename-callback)
+  * [wgdb.createRecord(num_fields, \[callback\])](#wgdbcreaterecordnum_fields-callback)
+  * [wgdb.firstRecord(\[callback\])](#wgdbfirstrecordcallback)
+  * [wgdb.findRecord(field, condition, value, \[last_record\], \[callback\])](#wgdbfindrecordfield-condition-value-last_record-callback)
+  * [wgdb.query(query, \[callback\])](#wgdbqueryquery-callback)
+* [record](#record)
+  * [record.setField(field, value, \[callback\])](#recordsetfieldfield-value-callback)
+  * [record.getField(field, \[callback\])](#recordgetfieldfield-callback)
+  * [record.length(\[callback\])](#recordlengthcallback)
+  * [record.getFields(\[callback\])](#recordgetfieldscallback)
+  * [record.delete(\[callback\)](#recorddeletecallback)
+* [cursor](#cursor)
+  * [cursor.next(\[callback\])](#cursornextcallback)
+
 ### wgdb
 When requiring the module you will end up with the `wgdb` class which is how you
 interact with WhiteDB
