@@ -195,12 +195,6 @@ void do_first_record(uv_work_t* req){
     baton->error = buffer;
     return;
   }
-  if(data->record == NULL){
-    char buffer[1024];
-    sprintf(buffer, "wgdb database %s could not create record of length %d", baton->wgdb->db_name, data->length);
-    baton->error = buffer;
-    return;
-  }
 
   baton->data = data;
 }
@@ -511,7 +505,7 @@ void Record::do_after_create_record(uv_work_t* req, int status){
   Baton* baton = static_cast<Baton*>(req->data);
   RecordData* data = static_cast<RecordData*>(baton->data);
   Local<Value> result;
-  if(!baton->error && data->record){
+  if(!baton->error && data->record != NULL){
     Local<Object> record_obj = Record::constructor->NewInstance(0, NULL);
     Record* record = ObjectWrap::Unwrap<Record>(record_obj);
     record->rec_ptr = data->record;
