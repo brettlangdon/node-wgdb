@@ -9,6 +9,7 @@ using namespace v8;
 void init(Handle<Object> target){
   WgDB::Init(target);
   Record::Init();
+  Cursor::Init();
 }
 
 NODE_MODULE(wgdb, init);

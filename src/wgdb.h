@@ -25,6 +25,7 @@ class WgDB : ObjectWrap{
   static Handle<Value> FirstRecord(const Arguments& args);
   static Handle<Value> Dump(const Arguments& args);
   static Handle<Value> Import(const Arguments& args);
+  static Handle<Value> Query(const Arguments& args);
   static Handle<Value> FindRecord(const Arguments& args);
 };
 
@@ -45,6 +46,22 @@ class Record : ObjectWrap{
   static Handle<Value> Delete(const Arguments& args);
 
   static void do_after_create_record(uv_work_t* req, int status);
+};
+
+class Cursor : ObjectWrap{
+ public:
+  WgDB* wgdb;
+  wg_query* query;
+  wg_query_arg* arglist;
+  int arglen;
+
+  ~Cursor();
+  static Persistent<Function> constructor;
+  static void Init();
+  static Handle<Value> New(const Arguments& args);
+  static Handle<Value> Next(const Arguments& args);
+
+  static void do_after_create_cursor(uv_work_t* req, int status);
 };
 
 #endif

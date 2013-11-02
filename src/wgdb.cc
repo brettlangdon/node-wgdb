@@ -1,6 +1,7 @@
 #include "wgdb.h"
 
 Persistent<Function> Record::constructor;
+Persistent<Function> Cursor::constructor;
 
 /*
  *
@@ -37,6 +38,12 @@ struct FindData {
   wg_int cond;
   void* rec;
   void* data;
+};
+
+struct CursorData {
+  int arglen;
+  wg_query_arg* arglist;
+  wg_query* query;
 };
 
 
@@ -248,6 +255,53 @@ void do_find_record(uv_work_t* req){
 
 }
 
+void do_cursor_next(uv_work_t* req){
+  Baton* baton = static_cast<Baton*>(req->data);
+
+  Cursor* cursor = static_cast<Cursor*>(baton->data);
+
+  wg_int lock = wg_start_read(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
+  RecordData* new_data = new RecordData();
+  new_data->record = wg_fetch(cursor->wgdb->db_ptr, cursor->query);
+  baton->data = new_data;
+
+  if(!wg_end_read(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not releae read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+  }
+}
+
+void do_query(uv_work_t* req){
+  Baton* baton = static_cast<Baton*>(req->data);
+
+  CursorData* data = static_cast<CursorData*>(baton->data);
+
+  wg_int lock = wg_start_read(baton->wgdb->db_ptr);
+  if(!lock){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not acquire read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+    return;
+  }
+
+  data->query = wg_make_query(baton->wgdb->db_ptr, NULL, 0, data->arglist, data->arglen);
+  baton->data = data;
+
+  if(!wg_end_read(baton->wgdb->db_ptr, lock)){
+    char buffer[1024];
+    sprintf(buffer, "wgdb database %s could not releae read lock", baton->wgdb->db_name);
+    baton->error = buffer;
+  }
+}
+
 void do_record_next(uv_work_t* req){
   Baton* baton = static_cast<Baton*>(req->data);
 
@@ -449,6 +503,8 @@ void WgDB::Init(Handle<Object> target){
                                 FunctionTemplate::New(WgDB::Import)->GetFunction());
   tpl->PrototypeTemplate()->Set(String::NewSymbol("findRecord"),
                                 FunctionTemplate::New(WgDB::FindRecord)->GetFunction());
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("query"),
+                                FunctionTemplate::New(WgDB::Query)->GetFunction());
 
   tpl->Set(String::NewSymbol("EQUAL"), Int32::New(int(WG_COND_EQUAL)));
   tpl->Set(String::NewSymbol("NOT_EQUAL"), Int32::New(int(WG_COND_NOT_EQUAL)));
@@ -712,6 +768,68 @@ Handle<Value> WgDB::FindRecord(const Arguments& args){
   return scope.Close(Undefined());
 }
 
+Handle<Value> WgDB::Query(const Arguments& args){
+  HandleScope scope;
+  int argc = args.Length();
+
+  if(argc < 1){
+    return ThrowException(Exception::Error(String::New("query requires 1 parameter")));
+  }
+
+  if(!args[0]->IsArray()){
+    return ThrowException(Exception::TypeError(String::New("query argument 1 must be an array")));
+  }
+
+  Baton* baton = new Baton();
+  if(args[argc - 1]->IsFunction()){
+    baton->has_cb = true;
+    baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[argc - 1]));
+  }
+
+  WgDB* db = ObjectWrap::Unwrap<WgDB>(args.This());
+  baton->wgdb = db;
+  db->Ref();
+
+  CursorData* data = new CursorData();
+
+  Local<Array> arg_array = Local<Array>::Cast(args[0]->ToObject());
+  data->arglen = arg_array->Length();
+  wg_query_arg arglist[data->arglen];
+  data->arglist = arglist;
+  int i;
+  for(i = 0; i < data->arglen; ++i){
+    Local<Value> next_val = arg_array->Get(i);
+    if(!next_val->IsArray()){
+      return ThrowException(Exception::TypeError(String::New("query argument 1 must be an array of arrays: [ [<field>, <cond>, <vaue>], ... ]")));
+    }
+    Local<Array> next = Local<Array>::Cast(next_val->ToObject());
+    if(next->Length() != 3){
+      return ThrowException(Exception::TypeError(String::New("query argument 1 must be an array of arrays: [ [<field>, <cond>, <vaue>], ... ]")));
+    }
+
+    Local<Value> field = next->Get(0);
+    if(!field->IsInt32()){
+      return ThrowException(Exception::TypeError(String::New("query argument 1 must be an array of arrays: [ [<field>, <cond>, <vaue>], ... ]")));
+    }
+
+    Local<Value> cond = next->Get(1);
+    if(!cond->IsInt32()){
+      return ThrowException(Exception::TypeError(String::New("query argument 1 must be an array of arrays: [ [<field>, <cond>, <vaue>], ... ]")));
+    }
+
+    data->arglist[i].column = field->Int32Value();
+    data->arglist[i].cond = cond->Int32Value();
+    data->arglist[i].value = v8_to_encoded_param(baton->wgdb->db_ptr, next->Get(2));
+  }
+
+  baton->data = data;
+  uv_work_t *req = new uv_work_t;
+  req->data = baton;
+  uv_queue_work(uv_default_loop(), req, do_query, Cursor::do_after_create_cursor);
+
+  return scope.Close(Undefined());
+}
+
 /*
  *
  * Record Class Definitions
@@ -868,4 +986,81 @@ Handle<Value> Record::GetField(const Arguments& args){
   uv_queue_work(uv_default_loop(), req, do_record_get, do_after_enc_result);
 
   return scope.Close(Undefined());
+}
+
+/*
+ *
+ * Cursor Class Definitions
+ *
+*/
+Cursor::~Cursor(){
+  if(this->wgdb && this->wgdb->db_ptr){
+    wg_free_query(this->wgdb->db_ptr, this->query);
+    int i;
+    for(i = 0; i < this->arglen; ++i){
+      wg_free_query_param(this->wgdb->db_ptr, this->arglist[i].value);
+    }
+  }
+}
+
+void Cursor::Init(){
+  HandleScope scope;
+  Local<FunctionTemplate> tpl = FunctionTemplate::New(New);
+  tpl->SetClassName(String::NewSymbol("cursor"));
+  tpl->InstanceTemplate()->SetInternalFieldCount(2);
+  tpl->PrototypeTemplate()->Set(String::NewSymbol("next"),
+                                FunctionTemplate::New(Cursor::Next)->GetFunction());
+  constructor = Persistent<Function>::New(tpl->GetFunction());
+}
+
+Handle<Value> Cursor::New(const Arguments& args){
+  HandleScope scope;
+
+  Cursor* cursor = new Cursor();
+  cursor->Wrap(args.This());
+
+  return scope.Close(args.This());
+}
+
+Handle<Value> Cursor::Next(const Arguments& args){
+  HandleScope scope;
+  int argc = args.Length();
+
+  Baton* baton = new Baton();
+  if(argc > 0 && args[argc - 1]->IsFunction()){
+    baton->has_cb = true;
+    baton->callback = Persistent<Function>::New(Local<Function>::Cast(args[argc - 1]));
+  }
+
+  Cursor* cursor = ObjectWrap::Unwrap<Cursor>(args.This());
+  baton->wgdb = cursor->wgdb;
+  baton->data = cursor;
+  cursor->Ref();
+
+  uv_work_t *req = new uv_work_t;
+  req->data = baton;
+  uv_queue_work(uv_default_loop(), req, do_cursor_next, Record::do_after_create_record);
+
+  return scope.Close(Undefined());
+}
+
+void Cursor::do_after_create_cursor(uv_work_t* req, int status){
+  Baton* baton = static_cast<Baton*>(req->data);
+  CursorData* data = static_cast<CursorData*>(baton->data);
+  Local<Value> result;
+  if(!baton->error){
+    Local<Object> cursor_obj = Cursor::constructor->NewInstance(0, NULL);
+    Cursor* cursor = ObjectWrap::Unwrap<Cursor>(cursor_obj);
+    cursor->arglen = data->arglen;
+    cursor->arglist = data->arglist;
+    cursor->query = data->query;
+    cursor->wgdb = baton->wgdb;
+    result = Local<Value>::New(cursor_obj);
+  } else{
+    result = Local<Value>::New(Undefined());
+  }
+  end_call(baton->has_cb, baton->callback, baton->error, result);
+  baton->callback.Dispose();
+  delete baton;
+  delete req;
 }
