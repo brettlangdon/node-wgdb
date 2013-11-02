@@ -1,5 +1,6 @@
 node-wgdb
 =========
+[![NPM version](https://badge.fury.io/js/wgdb.png)](http://badge.fury.io/js/wgdb)
 
 Bindings for [WhiteDB](http://whitedb.org/) for [Node.JS](http://nodejs.org/).
 
