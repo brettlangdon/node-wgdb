@@ -264,6 +264,8 @@ void do_find_record(uv_work_t* req){
   RecordData* new_data = new RecordData();
   new_data->record = wg_find_record(baton->wgdb->db_ptr, data->field, data->cond, data->enc, data->rec);
   baton->data = new_data;
+  wg_free_encoded(baton->wgdb->db_ptr, data->enc);
+  delete data;
 
   if(!wg_end_read(baton->wgdb->db_ptr, lock)){
     char buffer[1024];
