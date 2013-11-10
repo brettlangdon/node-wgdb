@@ -2,6 +2,7 @@
 #define WGDB_UTILS_H
 
 #include <node.h>
+#include <stdlib.h>
 #include <whitedb/dbapi.h>
 #include <v8.h>
 
