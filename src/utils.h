@@ -3,6 +3,7 @@
 
 #include <node.h>
 #include <stdlib.h>
+#include <string.h>
 #include <whitedb/dbapi.h>
 #include <v8.h>
 
